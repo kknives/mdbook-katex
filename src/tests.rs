@@ -125,3 +125,17 @@ fn test_macro_file_loading() {
         Some(PathBuf::from("book/macros.txt")) // We supply a root, just like the preproccessor context does
     );
 }
+
+#[test]
+fn test_inline_newlines() {
+    let preprocessor = KatexProcessor;
+    let macros = HashMap::new();
+    let (inline_opts, display_opts) = mock_build_opts(macros);
+    let raw_content = r"$\vec{a}$";
+    let content_lines = preprocessor
+        .process_chapter(&raw_content, &inline_opts, &display_opts)
+        .lines()
+        .count()
+        - katex_header().lines().count();
+    debug_assert_eq!(content_lines, 1);
+}
