@@ -8,9 +8,11 @@ use mdbook::errors::Error;
 use mdbook::preprocess::{Preprocessor, PreprocessorContext};
 
 pub struct KatexProcessor;
-enum Newlines {
-    Strip,
-    Keep,
+struct RenderOptions<'t> {
+    delimiters: &'t str,
+    katex_opts: &'t katex::Opts,
+    escape_backslash: bool,
+    strip_newlines: bool,
 }
 
 impl Preprocessor for KatexProcessor {
@@ -83,33 +85,36 @@ impl KatexProcessor {
         // render display equations
         let content = Self::render_between_delimiters(
             &raw_content,
-            "$$",
-            display_opts,
-            false,
-            Newlines::Keep,
+            RenderOptions {
+                delimiters: "$$",
+                katex_opts: display_opts,
+                escape_backslash: false,
+                strip_newlines: false,
+            },
         );
         // render inline equations
-        let content =
-            Self::render_between_delimiters(&content, "$", inline_opts, true, Newlines::Strip);
+        let content = Self::render_between_delimiters(
+            &content,
+            RenderOptions {
+                delimiters: "$",
+                katex_opts: inline_opts,
+                escape_backslash: true,
+                strip_newlines: true,
+            },
+        );
         rendered_content.push_str(&content);
         rendered_content
     }
 
     // render equations between given delimiters, with specified options
-    fn render_between_delimiters(
-        raw_content: &str,
-        delimiters: &str,
-        opts: &katex::Opts,
-        escape_backslash: bool,
-        newline_opts: Newlines,
-    ) -> String {
+    fn render_between_delimiters(raw_content: &str, options: RenderOptions) -> String {
         let mut rendered_content = String::new();
         let mut inside_delimiters = false;
-        for item in Self::split(&raw_content, &delimiters, escape_backslash) {
+        for item in Self::split(&raw_content, options.delimiters, options.escape_backslash) {
             if inside_delimiters {
                 // try to render equation
-                if let Ok(rendered) = katex::render_with_opts(&item, opts) {
-                    if let Newlines::Strip = newline_opts {
+                if let Ok(rendered) = katex::render_with_opts(&item, options.katex_opts) {
+                    if options.strip_newlines {
                         rendered_content.push_str(&rendered.replace('\n', " "))
                     } else {
                         rendered_content.push_str(&rendered)
