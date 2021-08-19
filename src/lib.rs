@@ -8,6 +8,10 @@ use mdbook::errors::Error;
 use mdbook::preprocess::{Preprocessor, PreprocessorContext};
 
 pub struct KatexProcessor;
+enum Newlines {
+    Strip,
+    Keep,
+}
 
 impl Preprocessor for KatexProcessor {
     fn name(&self) -> &str {
@@ -77,9 +81,16 @@ impl KatexProcessor {
         // add katex css
         let mut rendered_content = katex_header();
         // render display equations
-        let content = Self::render_between_delimiters(&raw_content, "$$", display_opts, false);
+        let content = Self::render_between_delimiters(
+            &raw_content,
+            "$$",
+            display_opts,
+            false,
+            Newlines::Keep,
+        );
         // render inline equations
-        let content = Self::render_between_delimiters(&content, "$", inline_opts, true);
+        let content =
+            Self::render_between_delimiters(&content, "$", inline_opts, true, Newlines::Strip);
         rendered_content.push_str(&content);
         rendered_content
     }
@@ -90,6 +101,7 @@ impl KatexProcessor {
         delimiters: &str,
         opts: &katex::Opts,
         escape_backslash: bool,
+        newline_opts: Newlines,
     ) -> String {
         let mut rendered_content = String::new();
         let mut inside_delimiters = false;
@@ -97,7 +109,11 @@ impl KatexProcessor {
             if inside_delimiters {
                 // try to render equation
                 if let Ok(rendered) = katex::render_with_opts(&item, opts) {
-                    rendered_content.push_str(&rendered)
+                    if let Newlines::Strip = newline_opts {
+                        rendered_content.push_str(&rendered.replace('\n', " "))
+                    } else {
+                        rendered_content.push_str(&rendered)
+                    }
                 // if rendering fails, keep the unrendered equation
                 } else {
                     rendered_content.push_str(&item)
